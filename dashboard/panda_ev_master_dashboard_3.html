@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panda EV — Sessions Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+  :root{--bg:#0d1117;--bg-soft:#161b22;--panel:#1c2230;--panel-2:#232b3d;--line:#2d3650;
+    --txt:#e8edf6;--muted:#8b97ad;--accent:#ff5f8d;--accent-2:#59d6a8;--warn:#ffb454;--blue:#5aa9ff;--radius:16px;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Noto Sans Lao',sans-serif;background:
+    radial-gradient(1200px 600px at 85% -10%,rgba(255,95,141,.12),transparent 60%),
+    radial-gradient(900px 500px at 0% 100%,rgba(89,214,168,.10),transparent 55%),var(--bg);
+    color:var(--txt);min-height:100vh;padding:24px clamp(14px,3vw,40px);}
+  .mono{font-family:'DM Mono',monospace;}
+  header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:22px;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#ff8fb0);display:grid;place-items:center;font-size:24px;box-shadow:0 8px 24px rgba(255,95,141,.4);}
+  .brand h1{font-size:21px;font-weight:800;}
+  .brand p{color:var(--muted);font-size:13px;}
+  .pill{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;background:var(--panel);border:1px solid var(--line);}
+  .tabs{display:flex;gap:6px;margin-bottom:22px;background:var(--bg-soft);padding:6px;border-radius:14px;border:1px solid var(--line);width:fit-content;flex-wrap:wrap;}
+  .tab{padding:9px 18px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;color:var(--muted);border:none;background:transparent;font-family:inherit;}
+  .tab.active{background:var(--accent);color:#fff;}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:22px;}
+  .stat{background:linear-gradient(160deg,var(--panel),var(--bg-soft));border:1px solid var(--line);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;}
+  .stat::after{content:'';position:absolute;right:-30px;top:-30px;width:80px;height:80px;border-radius:50%;background:var(--c,var(--accent));opacity:.1;}
+  .stat .label{color:var(--muted);font-size:12px;margin-bottom:6px;}
+  .stat .value{font-size:25px;font-weight:800;}
+  .stat .value small{font-size:13px;color:var(--muted);}
+  .section-title{font-size:16px;font-weight:700;margin:18px 0 14px;}
+  .card{background:var(--bg-soft);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
+  .card-pad{padding:18px;}
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:11px;color:var(--muted);padding:12px 14px;background:var(--panel);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;}
+  th:hover{color:var(--txt);}
+  td{padding:12px 14px;border-top:1px solid var(--line);font-size:13px;}
+  tr:hover td{background:rgba(255,255,255,.02);}
+  .tag{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:var(--panel-2);}
+  .tag.green{color:var(--accent-2);background:rgba(89,214,168,.12);}
+  .tag.pink{color:var(--accent);background:rgba(255,95,141,.12);}
+  .tag.blue{color:var(--blue);background:rgba(90,169,255,.12);}
+  .tag.red{color:#ff8a8a;background:rgba(255,95,109,.12);}
+  .tag.gray{color:var(--muted);}
+  .num{font-family:'DM Mono',monospace;text-align:right;}
+  th.num{text-align:right;}
+  .empty{padding:40px;text-align:center;color:var(--muted);}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+  input,select{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-family:inherit;font-size:13px;}
+  input{min-width:200px;}
+  input::placeholder{color:var(--muted);}
+  .btn{padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn:hover{border-color:var(--accent);}
+  .chart-box{height:300px;position:relative;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media(max-width:800px){.grid2{grid-template-columns:1fr;}}
+  .hidden{display:none!important;}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .bar-label{width:130px;font-size:13px;color:var(--muted);}
+  .bar-track{flex:1;height:22px;background:var(--panel);border-radius:6px;overflow:hidden;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),#ff8fb0);border-radius:6px;}
+  .bar-val{width:90px;text-align:right;font-family:'DM Mono',monospace;font-size:13px;}
+  .muted{color:var(--muted);font-size:12px;}
+  .pager{display:flex;gap:6px;align-items:center;justify-content:center;padding:16px;flex-wrap:wrap;}
+  .pager button{padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--txt);cursor:pointer;font-family:inherit;font-size:13px;}
+  .pager button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .pager button:disabled{opacity:.4;cursor:default;}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px;}
+  /* ── date filter bar ── */
+  .filter-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:10px 14px;margin-bottom:16px;}
+  .fb-label{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap;}
+  .fb-presets{display:flex;gap:5px;flex-wrap:wrap;}
+  .fb-preset{padding:5px 11px;border-radius:99px;border:1px solid var(--line);background:transparent;
+    color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .fb-preset:hover{border-color:var(--accent-2);color:var(--accent-2);}
+  .fb-preset.active{background:var(--accent-2);color:#0a1a12;border-color:var(--accent-2);}
+  .fb-sep{color:var(--line);user-select:none;}
+  .fb-date{padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);
+    color:var(--txt);font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;color-scheme:dark;}
+  .fb-date:focus{outline:none;border-color:var(--accent-2);}
+  .fb-count{margin-left:auto;font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);}
+  .fb-count strong{color:var(--accent-2);}
+
+  /* ── premium KPI cards ── */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+  .kpi{background:var(--bg-soft);border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;
+    position:relative;overflow:hidden;transition:border-color .2s,transform .15s;cursor:default;}
+  .kpi:hover{border-color:var(--muted);transform:translateY(-2px);}
+  .kpi::before{content:'';position:absolute;inset:0;border-radius:16px;opacity:0;
+    background:radial-gradient(circle at 80% -20%,var(--kc,var(--accent)),transparent 60%);transition:opacity .3s;}
+  .kpi:hover::before{opacity:.12;}
+  .kpi-icon{font-size:18px;margin-bottom:10px;display:block;}
+  .kpi-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+  .kpi-val{font-size:28px;font-weight:800;color:var(--txt);line-height:1.1;margin:4px 0 2px;font-variant-numeric:tabular-nums;}
+  .kpi-unit{font-size:12px;color:var(--muted);margin-left:2px;}
+  .kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+  .kpi-bar{position:absolute;left:0;bottom:0;right:0;height:2.5px;border-radius:0 0 16px 16px;
+    background:linear-gradient(90deg,var(--kc,var(--accent)),transparent);}
+
+  /* ── overview charts ── */
+  .ov-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px;}
+  @media(max-width:900px){.ov-grid{grid-template-columns:1fr;}}
+  .ov-panel{background:var(--bg-soft);border:1px solid var(--line);border-radius:16px;padding:18px;}
+  .ov-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+  .ov-chart-box{height:220px;position:relative;}
+  .ov-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
+  @media(max-width:800px){.ov-grid3{grid-template-columns:1fr 1fr;}}
+
+  /* station bars */
+  .st-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+  .st-dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .st-name{font-size:12px;color:var(--muted);min-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .st-bar-track{flex:1;height:8px;background:var(--panel);border-radius:4px;overflow:hidden;}
+  .st-bar-fill{height:100%;border-radius:4px;transition:width .7s cubic-bezier(.2,.8,.2,1);}
+  .st-val{font-family:'DM Mono',monospace;font-size:11.5px;color:var(--txt);text-align:right;min-width:56px;}
+
+  /* shift cards */
+  .shift-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  .shift-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;}
+  .shift-emoji{font-size:22px;margin-bottom:6px;}
+  .shift-name{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+  .shift-n{font-size:20px;font-weight:800;margin:4px 0 2px;}
+  .shift-pct{font-size:11px;color:var(--muted);}
+
+  /* hourly heatmap */
+  .hour-grid-ov{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;}
+  .hour-cell-ov{height:28px;border-radius:4px;background:var(--panel);position:relative;cursor:default;}
+  .hour-cell-ov:hover .hour-tip{display:block;}
+  .hour-tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+    background:var(--bg-soft);border:1px solid var(--line);border-radius:6px;padding:4px 8px;
+    font-size:10.5px;white-space:nowrap;z-index:10;color:var(--txt);pointer-events:none;}
+  .hour-lbl-row{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-top:3px;}
+  .hour-lbl-cell{font-size:9px;color:var(--txt3,#4a5060);text-align:center;font-family:'DM Mono',monospace;}
+
+  /* plug pills */
+  .plug-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+  .plug-name{font-size:12.5px;color:var(--muted);}
+  .plug-bar-wrap{flex:1;margin:0 10px;height:6px;background:var(--panel);border-radius:3px;overflow:hidden;}
+  .plug-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--blue),#6ea8ff);}
+  .plug-pct{font-family:'DM Mono',monospace;font-size:11.5px;color:var(--txt);}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .anim-in{animation:fadeUp .35s ease backwards;}
+
+  .upload-zone{border:1.5px dashed var(--line);border-radius:var(--radius);background:var(--panel);
+    padding:28px 24px;display:flex;align-items:center;gap:16px;cursor:pointer;
+    transition:border-color .15s,background .15s;margin-bottom:18px;}
+  .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent-2);background:rgba(89,214,168,.06);}
+  .upload-zone.hidden{display:none;}
+  .uz-icon{width:42px;height:42px;border-radius:12px;background:rgba(89,214,168,.12);
+    display:flex;align-items:center;justify-content:center;font-size:20px;flex:none;}
+  .uz-txt strong{display:block;font-size:14px;margin-bottom:4px;}
+  .uz-txt span{font-size:12.5px;color:var(--muted);line-height:1.5;}
+  .date-span-bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 16px;margin-bottom:18px;display:none;font-size:12.5px;}
+  .date-span-bar.show{display:block;}
+  .dsb-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+  .dsb-range{display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:12px;}
+  .dsb-range .dot{width:7px;height:7px;border-radius:50%;background:var(--accent-2);}
+  .dsb-range .date-val{color:var(--accent-2);font-weight:700;}
+  .dsb-query{margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:8px;
+    border:1px solid var(--line);font-family:'DM Mono',monospace;font-size:11.5px;color:var(--muted);
+    word-break:break-all;line-height:1.6;}
+  .dsb-query .kw{color:#59d6a8;}.dsb-query .str{color:#ffb454;}.dsb-query .cmt{color:#4d5d74;}
+  .copy-btn{padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);
+    color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;}
+  .copy-btn:hover{color:var(--txt);}
+
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">🐼</div>
+    <div><h1>Panda EV — Sessions Dashboard</h1><p id="subtitle">ກຳລັງໂຫຼດ...</p></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <div class="pill"><span style="width:9px;height:9px;border-radius:50%;background:var(--accent-2);display:inline-block"></span>&nbsp;<span id="totalPill">0</span> sessions</div>
+    <button class="btn" id="snapshotBtn" style="display:none;" onclick="saveSnapshot()">💾 ບັນທຶກ Snapshot</button>
+    <button class="btn" id="uploadMoreBtn" style="display:none;border-color:var(--accent-2);color:var(--accent-2);" onclick="document.getElementById('csvInput').click()">📥 ເພີ່ມ CSV</button>
+  </div>
+</header>
+
+<input type="file" id="csvInput" accept=".csv" multiple style="display:none">
+
+<div class="upload-zone" id="uploadZone" onclick="document.getElementById('csvInput').click()">
+  <div class="uz-icon">⚡</div>
+  <div class="uz-txt">
+    <strong>ວາງໄຟລ໌ CSV ຫຼື ກົດເພື່ອເລືອກໄຟລ໌</strong>
+    <span>ຮອງຮັບ: Snapshot ທີ່ສ້າງຈາກ dashboard ນີ້ ຫຼື export ຈາກ DBeaver ໂດຍໃຊ້ query ດ້ານລຸ່ມ<br>
+    ສາມາດວາງຫຼາຍໄຟລ໌ພ້ອມກັນໄດ້ — ຂໍ້ມູນຊ້ຳ (id ດຽວກັນ) ຈະຖືກ merge ໂດຍອັດຕະໂນມັດ</span>
+  </div>
+</div>
+
+<div class="date-span-bar" id="dateSpanBar">
+  <div class="dsb-top">
+    <div class="dsb-range">
+      <span class="dot"></span>
+      <span>ຂໍ້ມູນທີ່ໂຫຼດ: </span>
+      <span class="date-val" id="dsbMin">—</span>
+      <span style="color:var(--muted)">→</span>
+      <span class="date-val" id="dsbMax">—</span>
+      &nbsp;·&nbsp;<span id="dsbCount" style="color:var(--muted)"></span>
+    </div>
+    <button class="copy-btn" onclick="copyIncrQuery()">📋 Copy query ຕໍ່ໄດ້ທັນທີ</button>
+  </div>
+  <div class="dsb-query" id="dsbQuery"></div>
+</div>
+
+<div class="filter-bar" id="filterBar" style="display:none;">
+  <span class="fb-label">📅 ຊ່ວງເວລາ:</span>
+  <div class="fb-presets">
+    <button class="fb-preset active" data-fp="all" onclick="setFP(this,'all')">ທັງໝົດ</button>
+    <button class="fb-preset" data-fp="today" onclick="setFP(this,'today')">ມື້ນີ້</button>
+    <button class="fb-preset" data-fp="7d" onclick="setFP(this,'7d')">7 ວັນ</button>
+    <button class="fb-preset" data-fp="30d" onclick="setFP(this,'30d')">30 ວັນ</button>
+    <button class="fb-preset" data-fp="month" onclick="setFP(this,'month')">ເດືອນນີ້</button>
+  </div>
+  <span class="fb-sep">|</span>
+  <input class="fb-date" type="date" id="fbFrom" onchange="setCustom()">
+  <span class="fb-sep">→</span>
+  <input class="fb-date" type="date" id="fbTo" onchange="setCustom()">
+  <span class="fb-count" id="fbCount"></span>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="overview">📊 ພາບລວມ</button>
+  <button class="tab" data-tab="daily">📅 ລາຍວັນ</button>
+  <button class="tab" data-tab="station">🏢 ຕາມສະຖານີ</button>
+  <button class="tab" data-tab="shift">🕐 ຊ່ວງເວລາ</button>
+  <button class="tab" data-tab="detail">🔍 ຕາຕະລາງລະອຽດ</button>
+  <button class="tab" data-tab="alert">🔔 ຜິດປົກກະຕິ</button>
+  <button class="tab" data-tab="ranking">🏆 ຈັດອັນດັບ</button>
+  <button class="tab" data-tab="finance">💰 ການເງິນ</button>
+</div>
+
+<div id="tab-overview"></div>
+<div id="tab-daily" class="hidden"></div>
+<div id="tab-station" class="hidden"></div>
+<div id="tab-shift" class="hidden"></div>
+<div id="tab-detail" class="hidden"></div>
+<div id="tab-alert" class="hidden"></div>
+<div id="tab-ranking" class="hidden"></div>
+<div id="tab-finance" class="hidden"></div>
+
+<footer id="footerNote">Panda EV Dashboard · ຍັງບໍ່ໄດ້ໂຫຼດຂໍ້ມູນ</footer>
+
+<script>
+let _ALL_DATA = []; // all loaded sessions
+let DATA = [];        // filtered view — all render functions read this
+let _FILTER = {start:'', end:''};  // global date filter
+let _dataMap = new Map(); // id -> row for dedup
+
+// ---- Finance data stores ----
+let _BANK = [];   // gateway payments
+let _TOPUP = [];  // wallet topups
+let _REFUND = []; // wallet refunds
+
+// ---------- CSV upload & parsing ----------
+const SHIFT_FROM_HR = h => h >= 6&&h<12?'morning':h>=12&&h<18?'afternoon':h>=18&&h<23?'evening':'night';
+
+function detectCols(headers){
+  const h = headers.map(x => x.trim().toLowerCase());
+  const idx = k => { const i = h.indexOf(k); return i >= 0 ? i : -1; };
+  const first = (...keys) => { for(const k of keys){ const i=idx(k); if(i>=0) return i; } return -1; };
+  return {
+    id: first('id','session_id'),
+    station: first('station','station_name'),
+    charger: first('charger','charger_identity'),
+    user: first('user','first_name'),
+    lastName: first('last_name'),
+    phone: first('phone','phone_number'),
+    brand: first('brand'),
+    model: first('model'),
+    plate: first('plate'),
+    plug: first('plug','connector_type'),
+    started: first('started','started_at'),
+    dur: first('dur','duration_minutes'),
+    kwh: first('kwh','energy_kwh'),
+    cost: first('cost','total_amount_lak','amount'),
+    energyCost: first('energycost','energy_cost'),
+    parking: first('parking','charging_parking_fee'),
+    unplug: first('unplug','unplug_fee'),
+    vat: first('vat','vat_amount'),
+    status: first('status'),
+    date: first('date'),
+    shift: first('shift'),
+  };
+}
+
+function toN(v){ const n=parseFloat(String(v||'').replace(/,/g,'')); return isNaN(n)?0:n; }
+function toS(v){ return String(v==null?'':v).trim(); }
+
+function parseRow(raw, cols, headers){
+  const g = i => i >= 0 ? toS(raw[headers[i]]) : '';
+  const gn = i => i >= 0 ? toN(raw[headers[i]]) : 0;
+
+  const startedRaw = g(cols.started);
+  const datePart = startedRaw.slice(0,10);
+  const hourMatch = startedRaw.match(/[T ](\d{2}):/);
+  const hour = hourMatch ? parseInt(hourMatch[1]) : 0;
+  const shift = cols.shift >= 0 ? g(cols.shift) : SHIFT_FROM_HR(hour);
+
+  let user = g(cols.user);
+  if(cols.lastName >= 0){
+    const ln = g(cols.lastName);
+    if(ln) user = (user + ' ' + ln).trim();
+  }
+  // simplify station: remove "Panda EV — " or "Panda EV - "
+  let station = g(cols.station).replace(/^Panda EV\s*[—–-]\s*/i,'');
+
+  const charger = g(cols.charger);
+
+  return {
+    id: g(cols.id) || (startedRaw + g(cols.phone)),
+    station, charger, user,
+    phone: g(cols.phone),
+    brand: g(cols.brand), model: g(cols.model), plate: g(cols.plate),
+    plug: g(cols.plug),
+    started: startedRaw.replace('T',' ').replace(/\s*[+-]\d{2}:?\d{2}$/,'').replace(/\.\d+$/,'').slice(0,19),
+    dur: gn(cols.dur),
+    kwh: gn(cols.kwh),
+    cost: gn(cols.cost),
+    energyCost: gn(cols.energyCost),
+    parking: gn(cols.parking),
+    unplug: gn(cols.unplug),
+    vat: gn(cols.vat),
+    status: g(cols.status) || 'COMPLETED',
+    date: datePart || g(cols.date),
+    shift,
+  };
+}
+
+// ---- Finance CSV detection ----
+function detectFinanceType(headers){
+  const h = headers.map(x=>x.trim().toLowerCase());
+  const has = (...keys) => keys.some(k => h.includes(k));
+  if(has('gateway_id') || (has('provider') && has('bank_ref'))) return 'bank';
+  if(has('tx_id') && has('link_key') && has('balance_after')) return 'topup';
+  if(has('refund_id') || (has('tx_id') && has('balance_after') && has('description'))) return 'refund';
+  return null;
+}
+
+function ingestFinanceCSV(text){
+  try{
+    const result = Papa.parse(text, {header:true, skipEmptyLines:true});
+    if(!result.data.length || !result.meta || !result.meta.fields) return null;
+    const headers = result.meta.fields;
+    const type = detectFinanceType(headers);
+    if(!type) return null;
+    const h = headers.map(x=>x.trim().toLowerCase());
+    const g = (raw,k) => { const i=h.indexOf(k); return i>=0?String(raw[headers[i]]||'').trim():''; };
+    const gn = (raw,k) => { const v=g(raw,k); const n=parseFloat(v.replace(/,/g,'')); return isNaN(n)?0:n; };
+    const rows = result.data.map(raw => ({
+      id: g(raw,'gateway_id')||g(raw,'tx_id')||g(raw,'refund_id'),
+      provider: g(raw,'provider'),
+      status: g(raw,'status'),
+      amount: gn(raw,'lak')||gn(raw,'amount'),
+      balance_after: gn(raw,'balance_after'),
+      link_key: g(raw,'link_key'),
+      bank_ref: g(raw,'bank_ref'),
+      bank_ticket: g(raw,'bank_ticket'),
+      payer_name: g(raw,'payer_name')||g(raw,'name'),
+      payer_phone: g(raw,'payer_phone')||g(raw,'phone'),
+      description: g(raw,'description'),
+      time: g(raw,'time')||g(raw,'wallet_time')||g(raw,'gateway_time'),
+      date: (g(raw,'time')||g(raw,'wallet_time')||g(raw,'gateway_time')).slice(0,10),
+    }));
+    if(type==='bank') _BANK = rows;
+    if(type==='topup') _TOPUP = rows;
+    if(type==='refund') _REFUND = rows;
+    return type;
+  }catch(e){ console.error('ingestFinanceCSV error:',e); return null; }
+}
+
+function ingestCSV(text){
+  const result = Papa.parse(text, {header:true, skipEmptyLines:true});
+  if(!result.data.length) return 0;
+  const headers = result.meta.fields;
+  const cols = detectCols(headers);
+  let added = 0;
+  result.data.forEach(raw => {
+    const row = parseRow(raw, cols, headers);
+    if(!row.date && !row.started) return; // skip truly empty rows
+    if(!_dataMap.has(row.id)){ _dataMap.set(row.id, row); added++; }
+    else { _dataMap.set(row.id, row); } // update (newer export wins)
+  });
+  return added;
+}
+
+function rebuildData(){
+  _ALL_DATA = Array.from(_dataMap.values());
+  _ALL_DATA.sort((a,b) => a.started < b.started ? -1 : 1);
+  applyFilter();
+}
+function applyFilter(){
+  const s = _FILTER.start;
+  const e = _FILTER.end;
+  DATA = (!s && !e) ? _ALL_DATA : _ALL_DATA.filter(r => {
+    if(s && r.date && r.date < s) return false;
+    if(e && r.date && r.date > e) return false;
+    return true;
+  });
+}
+
+function getDateBounds(){
+  let min = null, max = null, maxFull = null;
+  _ALL_DATA.forEach(r => {
+    if(!r.date) return;
+    if(!min || r.date < min) min = r.date;
+    if(!max || r.date > max){ max = r.date; maxFull = r.started; }
+  });
+  return {min, max, maxFull};
+}
+
+function updateDateSpanBar(){
+  const bar = document.getElementById('dateSpanBar');
+  const bounds = getDateBounds();
+  if(!bounds.min){ bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+  document.getElementById('dsbMin').textContent = bounds.min;
+  document.getElementById('dsbMax').textContent = bounds.max;
+  document.getElementById('dsbCount').textContent = DATA.length.toLocaleString() + ' sessions ທັງໝົດ';
+
+  const maxTs = bounds.maxFull || bounds.max;
+  const qStart = `<span class="kw">WHERE</span> cs.started_at <span class="kw">></span> <span class="str">'${maxTs}'</span>`;
+  const qExtra = `<br><span class="cmt">-- ໃຊ້ WHERE ດ້ານເທິງ + ສ່ວນທີ່ເຫຼືອຂອງ query ດ້ານລຸ່ມ (SELECT ... FROM ... JOIN ... ORDER BY)</span>`;
+  document.getElementById('dsbQuery').innerHTML = qStart + qExtra;
+}
+
+let _pendingFiles = 0;
+function handleFiles(files){
+  const csvFiles = Array.from(files).filter(f => /\.csv$/i.test(f.name));
+  if(!csvFiles.length){ showToast('ກະລຸນາເລືອກໄຟລ໌ .csv', true); return; }
+  _pendingFiles += csvFiles.length;
+  csvFiles.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      // Try finance CSV first
+      const finType = ingestFinanceCSV(e.target.result);
+      const added = finType ? 0 : ingestCSV(e.target.result);
+      if(finType){ rendered['finance']=false; }
+      _pendingFiles--;
+      if(_pendingFiles === 0){
+        rebuildData();
+        refreshAll();
+        showToast(`ໂຫຼດສຳເລັດ — ${DATA.length.toLocaleString()} sessions ທັງໝົດ`);
+      }
+    };
+    reader.readAsText(f);
+  });
+}
+
+function refreshAll(){
+  applyFilter();
+  const n = DATA.length;
+  const total = _ALL_DATA.length;
+  document.getElementById('totalPill').textContent = n.toLocaleString() + (n < total ? ` / ${total.toLocaleString()}` : '');
+  document.getElementById('subtitle').textContent = total > 0
+    ? `ຂໍ້ມູນ ${total.toLocaleString()} sessions`
+    : 'ຍັງບໍ່ໄດ້ໂຫຼດຂໍ້ມູນ';
+  if(total > 0) document.getElementById('filterBar').style.display = '';
+  const fc = document.getElementById('fbCount');
+  if(fc) fc.innerHTML = n < total ? `<strong>${n.toLocaleString()}</strong> / ${total.toLocaleString()} sessions` : `<strong>${n.toLocaleString()}</strong> sessions`;
+  document.getElementById('footerNote').textContent =
+    n > 0 ? `Panda EV Dashboard · ${n.toLocaleString()} sessions · ສ້າງຈາກ CSV` : 'Panda EV Dashboard · ຍັງບໍ່ໄດ້ໂຫຼດຂໍ້ມູນ';
+  document.getElementById('snapshotBtn').style.display = n > 0 ? '' : 'none';
+  document.getElementById('uploadMoreBtn').style.display = n > 0 ? '' : 'none';
+  updateDateSpanBar();
+  // clear tab render cache so all tabs re-render with new data
+  Object.keys(rendered).forEach(k => delete rendered[k]);
+  // re-render active tab
+  const activeTab = document.querySelector('.tab.active');
+  if(activeTab){
+    const tab = activeTab.dataset.tab;
+    if(renderers[tab]){ renderers[tab](); rendered[tab] = true; }
+  }
+}
+
+// ---------- snapshot export ----------
+const SNAP_COLS = ['id','station','charger','user','phone','brand','model','plate','plug','started','dur','kwh','cost','energyCost','parking','unplug','vat','status','date','shift'];
+function saveSnapshot(){
+  if(!DATA.length){ showToast('ບໍ່ມີຂໍ້ມູນ', true); return; }
+  const rows = [SNAP_COLS.join(',')];
+  DATA.forEach(r => {
+    rows.push(SNAP_COLS.map(k => {
+      const v = r[k] == null ? '' : r[k];
+      return typeof v === 'string' && (v.includes(',') || v.includes('"') || v.includes('\n'))
+        ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }).join(','));
+  });
+  const blob = new Blob(['\uFEFF' + rows.join('\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  const bounds = getDateBounds();
+  a.href = URL.createObjectURL(blob);
+  a.download = `panda_ev_snapshot_${(bounds.max||'').replace(/-/g,'')}.csv`;
+  a.click();
+  showToast('ບັນທຶກ Snapshot ສຳເລັດ — ' + DATA.length.toLocaleString() + ' sessions');
+}
+
+// ---------- copy incremental query ----------
+function copyIncrQuery(){
+  const bounds = getDateBounds();
+  const maxTs = bounds.maxFull || bounds.max || '';
+  const q = `SELECT\n  SUBSTRING(cs.id::text, 1, 8) AS id,\n  REPLACE(cs.station_name, 'Panda EV — ', '') AS station,\n  cs.charger_identity AS charger,\n  TRIM(COALESCE(mu.first_name,'') || ' ' || COALESCE(mu.last_name,'')) AS user,\n  mu.phone_number AS phone,\n  '' AS brand, '' AS model, '' AS plate,\n  '' AS plug,\n  to_char(cs.started_at AT TIME ZONE 'Asia/Vientiane', 'YYYY-MM-DD HH24:MI:SS') AS started,\n  cs.duration_minutes AS dur,\n  cs.energy_kwh AS kwh,\n  cs.amount AS cost,\n  cs.energy_cost AS energyCost,\n  cs.charging_parking_fee AS parking,\n  cs.unplug_fee AS unplug,\n  cs.vat_amount AS vat,\n  cs.status,\n  to_char(cs.started_at AT TIME ZONE 'Asia/Vientiane', 'YYYY-MM-DD') AS date\nFROM panda_ev_mobile.charging_sessions cs\nJOIN panda_ev_mobile.mobile_users mu ON mu.id = cs.user_id\nWHERE cs.status = 'COMPLETED'\n  AND cs.started_at > '${maxTs}'\nORDER BY cs.started_at ASC;`;
+  navigator.clipboard.writeText(q).then(() => showToast('Copy Query ສຳເລັດ — ວາງໃນ DBeaver ໄດ້ເລີຍ'));
+}
+
+// ---------- toast ----------
+function showToast(msg, isErr){
+  let s = document.getElementById('_toastStack');
+  if(!s){ s = document.createElement('div'); s.id='_toastStack';
+    s.style.cssText='position:fixed;top:14px;right:14px;display:flex;flex-direction:column;gap:6px;z-index:9999;'; document.body.appendChild(s); }
+  const t = document.createElement('div');
+  t.style.cssText=`background:${isErr?'#b23b2e':'var(--panel)'};border:1px solid ${isErr?'#e05050':'var(--line)'};color:var(--txt);padding:10px 14px;border-radius:10px;font-size:13px;max-width:320px;box-shadow:0 4px 16px rgba(0,0,0,.4);`;
+  t.textContent = msg;
+  s.appendChild(t);
+  setTimeout(()=>{ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(()=>t.remove(),300); }, 3200);
+}
+
+// ---------- drag-drop wiring ----------
+const uploadZone = document.getElementById('uploadZone');
+const csvInput = document.getElementById('csvInput');
+uploadZone.addEventListener('dragover', e=>{ e.preventDefault(); uploadZone.classList.add('dragover'); });
+['dragleave','drop'].forEach(ev=>uploadZone.addEventListener(ev, e=>{ e.preventDefault(); uploadZone.classList.remove('dragover'); }));
+uploadZone.addEventListener('drop', e=>{ handleFiles(e.dataTransfer.files); });
+csvInput.addEventListener('change', e=>{ handleFiles(e.target.files); csvInput.value=''; });
+
+
+const fmt=n=>Math.round(n).toLocaleString();
+const fmt1=n=>(Math.round(n*100)/100).toLocaleString();
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const SHIFT_LABEL={morning:'🌅 ເຊົ້າ',afternoon:'☀️ ສວາຍ',evening:'🌆 ແລງ',night:'🌙 ກາງຄືນ'};
+
+// ---------- helpers ----------
+function sum(arr,key){return arr.reduce((a,b)=>a+(b[key]||0),0);}
+function groupBy(arr,key){const m={};arr.forEach(r=>{(m[r[key]]=m[r[key]]||[]).push(r);});return m;}
+function uniqueDates(){return [...new Set(DATA.map(r=>r.date).filter(Boolean))].sort();}
+
+
+// ── global date filter ──
+function setFP(btn, preset){
+  document.querySelectorAll('.fb-preset').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const bounds = getDateBounds();
+  const maxDate = bounds.max || new Date().toISOString().slice(0,10);
+  const maxD = new Date(maxDate + 'T12:00:00');
+  let s = '', e = '';
+  if(preset === 'all'){}
+  else if(preset === 'today'){ s = e = maxDate; }
+  else if(preset === '7d'){ const d=new Date(maxD); d.setDate(d.getDate()-6); s=d.toISOString().slice(0,10); e=maxDate; }
+  else if(preset === '30d'){ const d=new Date(maxD); d.setDate(d.getDate()-29); s=d.toISOString().slice(0,10); e=maxDate; }
+  else if(preset === 'month'){ s=maxDate.slice(0,7)+'-01'; e=maxDate; }
+  _FILTER.start = s; _FILTER.end = e;
+  const fbF = document.getElementById('fbFrom'); const fbT = document.getElementById('fbTo');
+  if(fbF) fbF.value = s; if(fbT) fbT.value = e;
+  refreshAll();
+}
+function setCustom(){
+  document.querySelectorAll('.fb-preset').forEach(b=>b.classList.remove('active'));
+  _FILTER.start = document.getElementById('fbFrom').value || '';
+  _FILTER.end = document.getElementById('fbTo').value || '';
+  refreshAll();
+}
+
+// ---------- OVERVIEW ----------
+function countUp(el, target, decimals, dur){
+  if(!el) return;
+  const start = performance.now();
+  const from = 0;
+  function tick(now){
+    const pct = Math.min((now-start)/dur, 1);
+    const ease = 1-Math.pow(1-pct,3);
+    const v = from + (target-from)*ease;
+    el.textContent = decimals ? fmt1(v) : fmt(v);
+    if(pct < 1) requestAnimationFrame(tick);
+    else el.textContent = decimals ? fmt1(target) : fmt(target);
+  }
+  requestAnimationFrame(tick);
+}
+
+function renderOverview(){
+  if(!DATA.length){
+    document.getElementById('tab-overview').innerHTML = '<div class="empty" style="padding:60px;"><p style="font-size:24px;margin-bottom:10px;">⚡</p><p style="color:var(--muted);">ວາງໄຟລ໌ CSV ເພື່ອເລີ່ມ</p></div>';
+    return;
+  }
+  const dates = [...new Set(DATA.map(r=>r.date).filter(Boolean))].sort();
+  const totalKwh = sum(DATA,'kwh');
+  const totalRev = sum(DATA,'cost');
+  const totalSess = DATA.length;
+  const phones = new Set(DATA.map(r=>r.phone).filter(Boolean));
+  const avgKwh = totalSess ? totalKwh/totalSess : 0;
+  const avgRev = totalSess ? totalRev/totalSess : 0;
+  const avgDur = totalSess ? sum(DATA,'dur')/totalSess : 0;
+  const byStation = groupBy(DATA,'station');
+  const byShift = groupBy(DATA,'shift');
+  const byPlug = groupBy(DATA,'plug');
+  const STATION_COLORS = ['#ff5f8d','#59d6a8','#5aa9ff','#ffb454','#b57bff','#f87171','#34d399'];
+  const stations = Object.keys(byStation).sort((a,b)=>byStation[b].length-byStation[a].length);
+  const maxSt = byStation[stations[0]]?.length || 1;
+
+  // hourly distribution
+  const hours = new Array(24).fill(0);
+  DATA.forEach(r=>{ const h=r.started?parseInt(r.started.slice(11,13)):null; if(h>=0&&h<24) hours[h]++; });
+  const maxH = Math.max(...hours, 1);
+
+  const SHIFT_CFG = [
+    {k:'morning', em:'🌅', label:'ເຊົ້າ (06-12)', color:'#ffb454'},
+    {k:'afternoon', em:'☀️', label:'ສວາຍ (12-18)', color:'#ff5f8d'},
+    {k:'evening', em:'🌆', label:'ແລງ (18-23)', color:'#59d6a8'},
+    {k:'night', em:'🌙', label:'ກາງຄືນ', color:'#5aa9ff'},
+  ];
+
+  const plugs = Object.entries(byPlug).sort((a,b)=>b[1].length-a[1].length).slice(0,5);
+  const maxPlug = plugs[0]?.[1].length || 1;
+
+  const dateLabel = dates.length > 1 ? `${dates[0]} → ${dates[dates.length-1]}` : (dates[0] || '—');
+  document.getElementById('subtitle').textContent = dateLabel + ' · ' + dates.length + ' ວັນ';
+
+  const h = `
+<div class="kpi-grid" id="kpiGrid">
+  <div class="kpi anim-in" style="--kc:#59d6a8;animation-delay:.00s">
+    <span class="kpi-icon">⚡</span>
+    <div class="kpi-lbl">ພະລັງງານລວມ</div>
+    <div class="kpi-val"><span id="kv0">${fmt1(totalKwh)}</span><span class="kpi-unit">kWh</span></div>
+    <div class="kpi-sub">ສະເລ່ຍ ${fmt1(avgKwh)} kWh / session</div>
+    <div class="kpi-bar"></div>
+  </div>
+  <div class="kpi anim-in" style="--kc:#ff5f8d;animation-delay:.05s">
+    <span class="kpi-icon">💰</span>
+    <div class="kpi-lbl">ລາຍຮັບລວມ</div>
+    <div class="kpi-val"><span id="kv1">${fmt(totalRev)}</span><span class="kpi-unit">₭</span></div>
+    <div class="kpi-sub">ສະເລ່ຍ ${fmt(Math.round(avgRev))} ₭ / session</div>
+    <div class="kpi-bar"></div>
+  </div>
+  <div class="kpi anim-in" style="--kc:#5aa9ff;animation-delay:.10s">
+    <span class="kpi-icon">🔌</span>
+    <div class="kpi-lbl">ຈຳນວນ Sessions</div>
+    <div class="kpi-val"><span id="kv2">${fmt(totalSess)}</span></div>
+    <div class="kpi-sub">ໃນ ${dates.length} ວັນ · ສະເລ່ຍ ${fmt1(totalSess/Math.max(dates.length,1))} / ວັນ</div>
+    <div class="kpi-bar"></div>
+  </div>
+  <div class="kpi anim-in" style="--kc:#b57bff;animation-delay:.15s">
+    <span class="kpi-icon">👤</span>
+    <div class="kpi-lbl">ລູກຄ້າ (unique)</div>
+    <div class="kpi-val"><span id="kv3">${fmt(phones.size)}</span></div>
+    <div class="kpi-sub">ສະເລ່ຍ ${fmt1(totalSess/Math.max(phones.size,1))} sessions / ຄົນ</div>
+    <div class="kpi-bar"></div>
+  </div>
+  <div class="kpi anim-in" style="--kc:#ffb454;animation-delay:.20s">
+    <span class="kpi-icon">⏱</span>
+    <div class="kpi-lbl">ເວລາສາກສະເລ່ຍ</div>
+    <div class="kpi-val"><span id="kv4">${fmt1(avgDur)}</span><span class="kpi-unit">ນາທີ</span></div>
+    <div class="kpi-sub">${Math.floor(avgDur/60)}h ${Math.round(avgDur%60)}m ຕໍ່ session</div>
+    <div class="kpi-bar"></div>
+  </div>
+  <div class="kpi anim-in" style="--kc:#34d399;animation-delay:.25s">
+    <span class="kpi-icon">🏢</span>
+    <div class="kpi-lbl">ສະຖານີ</div>
+    <div class="kpi-val"><span id="kv5">${stations.length}</span></div>
+    <div class="kpi-sub">ຫຼາຍສຸດ: ${stations[0] || '—'}</div>
+    <div class="kpi-bar"></div>
+  </div>
+</div>
+
+<div class="ov-grid">
+  <div class="ov-panel anim-in" style="animation-delay:.1s">
+    <div class="ov-title">📈 ພະລັງງານ ແລະ ລາຍຮັບ ຕາມວັນ</div>
+    <div class="ov-chart-box"><canvas id="chartDaily"></canvas></div>
+  </div>
+  <div class="ov-panel anim-in" style="animation-delay:.15s">
+    <div class="ov-title">🏢 ສັດສ່ວນຕາມສະຖານີ <span style="font-weight:400;text-transform:none;">(sessions)</span></div>
+    ${stations.map((s,i)=>`
+      <div class="st-row">
+        <div class="st-dot" style="background:${STATION_COLORS[i%STATION_COLORS.length]}"></div>
+        <div class="st-name" title="${s}">${s}</div>
+        <div class="st-bar-track"><div class="st-bar-fill" data-pct="${Math.round((byStation[s].length/maxSt)*100)}" style="width:0%;background:${STATION_COLORS[i%STATION_COLORS.length]};"></div></div>
+        <div class="st-val">${byStation[s].length.toLocaleString()}</div>
+      </div>`).join('')}
+  </div>
+</div>
+
+<div class="ov-grid3">
+  <div class="ov-panel anim-in" style="animation-delay:.2s">
+    <div class="ov-title">🕐 ຕາມຊ່ວງເວລາ</div>
+    <div class="shift-grid">
+      ${SHIFT_CFG.map(sc=>{
+        const arr = byShift[sc.k]||[];
+        const pct = totalSess ? Math.round((arr.length/totalSess)*100) : 0;
+        return `<div class="shift-card">
+          <div class="shift-emoji">${sc.em}</div>
+          <div class="shift-name">${sc.label}</div>
+          <div class="shift-n" style="color:${sc.color}">${arr.length.toLocaleString()}</div>
+          <div class="shift-pct">${pct}%</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+  <div class="ov-panel anim-in" style="animation-delay:.25s">
+    <div class="ov-title">⏰ ການແຈກຢ່າຍຕາມຊົ່ວໂມງ</div>
+    <div class="hour-grid-ov">
+      ${hours.slice(0,12).map((n,i)=>{
+        const a = (n/maxH);
+        const bg = `rgba(89,214,168,${(a*0.8+0.04).toFixed(2)})`;
+        return `<div class="hour-cell-ov" style="background:${bg}"><span class="hour-tip">${i}:00 — ${n} sessions</span></div>`;
+      }).join('')}
+    </div>
+    <div class="hour-lbl-row">${hours.slice(0,12).map((_,i)=>`<div class="hour-lbl-cell">${i}</div>`).join('')}</div>
+    <div style="height:6px;"></div>
+    <div class="hour-grid-ov">
+      ${hours.slice(12).map((n,i)=>{
+        const a = (n/maxH);
+        const bg = `rgba(255,95,141,${(a*0.8+0.04).toFixed(2)})`;
+        return `<div class="hour-cell-ov" style="background:${bg}"><span class="hour-tip">${i+12}:00 — ${n} sessions</span></div>`;
+      }).join('')}
+    </div>
+    <div class="hour-lbl-row">${hours.slice(12).map((_,i)=>`<div class="hour-lbl-cell">${i+12}</div>`).join('')}</div>
+  </div>
+  <div class="ov-panel anim-in" style="animation-delay:.3s">
+    <div class="ov-title">🔌 ປະເພດ Plug</div>
+    ${plugs.map(([plug, arr])=>`
+      <div class="plug-row">
+        <div class="plug-name">${plug||'—'}</div>
+        <div class="plug-bar-wrap"><div class="plug-bar-fill" data-pct="${Math.round((arr.length/maxPlug)*100)}" style="width:0%;"></div></div>
+        <div class="plug-pct">${Math.round((arr.length/totalSess)*100)}%</div>
+      </div>`).join('')}
+  </div>
+</div>
+`;
+
+  document.getElementById('tab-overview').innerHTML = h;
+
+  // count-up animations
+  requestAnimationFrame(()=>{
+    countUp(document.getElementById('kv0'), totalKwh, true, 900);
+    countUp(document.getElementById('kv1'), totalRev, false, 900);
+    countUp(document.getElementById('kv2'), totalSess, false, 700);
+    countUp(document.getElementById('kv3'), phones.size, false, 700);
+    countUp(document.getElementById('kv4'), avgDur, true, 700);
+    countUp(document.getElementById('kv5'), stations.length, false, 500);
+    // bar animations
+    setTimeout(()=>{
+      document.querySelectorAll('.st-bar-fill[data-pct]').forEach(el=>{el.style.width=el.dataset.pct+'%';});
+      document.querySelectorAll('.plug-bar-fill[data-pct]').forEach(el=>{el.style.width=el.dataset.pct+'%';});
+    }, 120);
+  });
+
+  // daily chart
+  const byDate = groupBy(DATA,'date');
+  const dlabels = dates;
+  const chartEl = document.getElementById('chartDaily');
+  if(chartEl){
+    new Chart(chartEl,{
+      type:'bar',
+      data:{labels:dlabels, datasets:[
+        {label:'kWh', data:dlabels.map(d=>Math.round(sum(byDate[d],'kwh')*10)/10),
+         backgroundColor:'rgba(89,214,168,.7)', borderColor:'#59d6a8', borderWidth:1, yAxisID:'y', borderRadius:4},
+        {label:'ລາຍຮັບ (₭)', data:dlabels.map(d=>sum(byDate[d],'cost')),
+         type:'line', borderColor:'#ff5f8d', backgroundColor:'rgba(255,95,141,.08)',
+         borderWidth:2, pointRadius:3, pointBackgroundColor:'#ff5f8d', yAxisID:'y1',
+         tension:.35, fill:true}
+      ]},
+      options:{responsive:true, maintainAspectRatio:false,
+        animation:{duration:800, easing:'easeOutCubic'},
+        plugins:{legend:{labels:{color:'#8b97ad', font:{size:11}}},tooltip:{mode:'index',intersect:false}},
+        scales:{
+          x:{ticks:{color:'#8b97ad', maxRotation:45, font:{size:10}}, grid:{color:'#2d3650'}},
+          y:{position:'left', ticks:{color:'#59d6a8', font:{size:10}}, grid:{color:'#2d3650'}, title:{display:true,text:'kWh',color:'#59d6a8',font:{size:10}}},
+          y1:{position:'right', ticks:{color:'#ff5f8d', font:{size:10}}, grid:{display:false}, title:{display:true,text:'₭',color:'#ff5f8d',font:{size:10}}}
+        }
+      }
+    });
+  }
+}
+
+
+// ---------- DAILY ----------
+function renderDaily(){
+  const dates=uniqueDates().reverse();
+  const byDate=groupBy(DATA,'date');
+  let h=`<div class="card"><table><thead><tr><th>ວັນທີ</th><th class="num"># Sessions</th><th class="num">ພະລັງງານ (kWh)</th><th class="num">ລາຍຮັບ (₭)</th><th class="num">ສະເລ່ຍ/ຄັນ</th></tr></thead><tbody>`;
+  dates.forEach(d=>{
+    const rows=byDate[d];
+    h+=`<tr><td><strong>${d}</strong></td><td class="num">${rows.length}</td><td class="num">${fmt1(sum(rows,'kwh'))}</td><td class="num">${fmt(sum(rows,'cost'))}</td><td class="num">${fmt1(sum(rows,'kwh')/rows.length)} kWh</td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  document.getElementById('tab-daily').innerHTML=h;
+}
+
+// ---------- STATION ----------
+function renderStation(){
+  const byStation=groupBy(DATA,'station');
+  const arr=Object.entries(byStation).map(([s,rows])=>({s,n:rows.length,kwh:sum(rows,'kwh'),rev:sum(rows,'cost')})).sort((a,b)=>b.rev-a.rev);
+  const maxRev=Math.max(...arr.map(a=>a.rev));
+  let h=`<div class="card"><div class="card-pad"><div class="section-title" style="margin-top:0">ລາຍຮັບຕາມສະຖານີ</div>`;
+  arr.forEach(a=>{
+    h+=`<div class="bar-row"><div class="bar-label">${esc(a.s)}</div><div class="bar-track"><div class="bar-fill" style="width:${a.rev/maxRev*100}%"></div></div><div class="bar-val">${fmt(a.rev)} ₭</div></div>`;
+  });
+  h+=`</div></div><div class="card"><table><thead><tr><th>ສະຖານີ</th><th class="num"># Sessions</th><th class="num">ພະລັງງານ (kWh)</th><th class="num">ລາຍຮັບ (₭)</th></tr></thead><tbody>`;
+  arr.forEach(a=>{h+=`<tr><td><span class="tag pink">${esc(a.s)}</span></td><td class="num">${a.n}</td><td class="num">${fmt1(a.kwh)}</td><td class="num">${fmt(a.rev)}</td></tr>`;});
+  h+=`</tbody></table></div>`;
+  document.getElementById('tab-station').innerHTML=h;
+}
+
+// ---------- SHIFT ----------
+function renderShift(){
+  const dates=uniqueDates().reverse();
+  const order=['morning','afternoon','evening','night'];
+  let h='';
+  dates.forEach(d=>{
+    const rows=DATA.filter(r=>r.date===d);
+    const byShift=groupBy(rows,'shift');
+    let tc=0,te=0,tr=0;
+    h+=`<div class="card"><table><thead><tr><th>${d}</th><th class="num">ຈຳນວນ</th><th class="num">ພະລັງງານ</th><th class="num">ລາຍຮັບ</th></tr></thead><tbody>`;
+    order.forEach(sk=>{
+      const rs=byShift[sk]||[];tc+=rs.length;te+=sum(rs,'kwh');tr+=sum(rs,'cost');
+      h+=`<tr><td>${SHIFT_LABEL[sk]}</td><td class="num">${rs.length} ຄັນ</td><td class="num">${fmt1(sum(rs,'kwh'))} kWh</td><td class="num">${fmt(sum(rs,'cost'))} ₭</td></tr>`;
+    });
+    h+=`<tr style="border-top:2px solid var(--accent)"><td><strong>ລວມ</strong></td><td class="num"><strong>${tc}</strong></td><td class="num"><strong>${fmt1(te)} kWh</strong></td><td class="num"><strong>${fmt(tr)} ₭</strong></td></tr>`;
+    h+=`</tbody></table></div>`;
+  });
+  document.getElementById('tab-shift').innerHTML=h;
+}
+
+// ---------- DETAIL (ค้น/กรอง/เรียง/แบ่งหน้า) ----------
+let detailState={page:1,perPage:50,sort:'started',dir:-1,q:'',station:'',status:'',shift:''};
+function renderDetailShell(){
+  const stations=[...new Set(DATA.map(r=>r.station))].sort();
+  let h=`<div class="toolbar">
+    <input type="text" id="dq" placeholder="ຄົ້ນຫາ ຊື່/ເບີ/ປ້າຍ/charger..." value="${esc(detailState.q)}">
+    <select id="dstation"><option value="">ທຸກສະຖານີ</option>${stations.map(s=>`<option ${detailState.station===s?'selected':''}>${esc(s)}</option>`).join('')}</select>
+    <select id="dstatus"><option value="">ທຸກສະຖານะ</option><option ${detailState.status==='ACTIVE'?'selected':''}>ACTIVE</option><option ${detailState.status==='COMPLETED'?'selected':''}>COMPLETED</option></select>
+    <select id="dshift"><option value="">ທຸກຊ່ວງ</option><option value="morning" ${detailState.shift==='morning'?'selected':''}>ເຊົ້າ</option><option value="afternoon" ${detailState.shift==='afternoon'?'selected':''}>ສວາຍ</option><option value="evening" ${detailState.shift==='evening'?'selected':''}>ແລງ</option><option value="night" ${detailState.shift==='night'?'selected':''}>ກາງຄືນ</option></select>
+    <button class="btn" id="dexport">⬇️ Export CSV</button>
+  </div><div class="card"><div id="detailTable"></div><div class="pager" id="detailPager"></div></div>`;
+  document.getElementById('tab-detail').innerHTML=h;
+  document.getElementById('dq').addEventListener('input',e=>{detailState.q=e.target.value;detailState.page=1;renderDetailTable();});
+  document.getElementById('dstation').addEventListener('change',e=>{detailState.station=e.target.value;detailState.page=1;renderDetailTable();});
+  document.getElementById('dstatus').addEventListener('change',e=>{detailState.status=e.target.value;detailState.page=1;renderDetailTable();});
+  document.getElementById('dshift').addEventListener('change',e=>{detailState.shift=e.target.value;detailState.page=1;renderDetailTable();});
+  document.getElementById('dexport').addEventListener('click',exportDetail);
+  renderDetailTable();
+}
+function filteredDetail(){
+  let r=DATA.slice();
+  if(detailState.q){const q=detailState.q.toLowerCase();r=r.filter(x=>(x.user+' '+x.phone+' '+x.plate+' '+x.charger+' '+x.brand+' '+x.model).toLowerCase().includes(q));}
+  if(detailState.station)r=r.filter(x=>x.station===detailState.station);
+  if(detailState.status)r=r.filter(x=>x.status===detailState.status);
+  if(detailState.shift)r=r.filter(x=>x.shift===detailState.shift);
+  const s=detailState.sort,d=detailState.dir;
+  r.sort((a,b)=>{let va=a[s],vb=b[s];if(typeof va==='number')return (va-vb)*d;return String(va).localeCompare(String(vb))*d;});
+  return r;
+}
+function renderDetailTable(){
+  const all=filteredDetail();
+  const tp=Math.ceil(all.length/detailState.perPage)||1;
+  if(detailState.page>tp)detailState.page=tp;
+  const start=(detailState.page-1)*detailState.perPage;
+  const rows=all.slice(start,start+detailState.perPage);
+  const cols=[['started','ເລີ່ມ'],['station','ສະຖານີ'],['charger','Charger'],['user','ຜູ້ໃຊ້'],['vehicle','ລົດ'],['dur','ນາທີ'],['kwh','kWh'],['cost','ຄ່າໃຊ້ຈ່າຍ'],['status','ສະຖານะ']];
+  let h=`<table><thead><tr>`;
+  cols.forEach(([k,lbl])=>{const isNum=['dur','kwh','cost'].includes(k);h+=`<th class="${isNum?'num':''}" onclick="sortDetail('${k}')">${lbl}${detailState.sort===k?(detailState.dir>0?' ▲':' ▼'):''}</th>`;});
+  h+=`</tr></thead><tbody>`;
+  if(!rows.length)h+=`<tr><td colspan="9" class="empty">ບໍ່ພົບຂໍ້ມູນ</td></tr>`;
+  rows.forEach(r=>{
+    const veh=[r.brand,r.model].filter(Boolean).join(' ')+(r.plate?` (${r.plate})`:'');
+    const stTag=r.status==='ACTIVE'?'<span class="tag green">ACTIVE</span>':r.status==='COMPLETED'?'<span class="tag gray">COMPLETED</span>':`<span class="tag">${esc(r.status)}</span>`;
+    h+=`<tr><td class="muted">${esc(r.started)}</td><td><span class="tag pink">${esc(r.station)}</span></td><td>${esc(r.charger)}</td>
+      <td>${esc(r.user)}<div class="muted">${esc(r.phone)}</div></td><td>${esc(veh||'—')} ${r.plug?`<span class="tag blue">${esc(r.plug)}</span>`:''}</td>
+      <td class="num">${r.dur}</td><td class="num">${fmt1(r.kwh)}</td><td class="num">${fmt(r.cost)} ₭</td><td>${stTag}</td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  document.getElementById('detailTable').innerHTML=h;
+  // pager
+  let p=`<span class="muted">ສະແດງ ${start+1}-${Math.min(start+detailState.perPage,all.length)} ຈາກ ${all.length}</span> `;
+  p+=`<button onclick="goPage(1)" ${detailState.page===1?'disabled':''}>«</button>`;
+  p+=`<button onclick="goPage(${detailState.page-1})" ${detailState.page===1?'disabled':''}>‹</button>`;
+  p+=`<button class="active">${detailState.page} / ${tp}</button>`;
+  p+=`<button onclick="goPage(${detailState.page+1})" ${detailState.page===tp?'disabled':''}>›</button>`;
+  p+=`<button onclick="goPage(${tp})" ${detailState.page===tp?'disabled':''}>»</button>`;
+  document.getElementById('detailPager').innerHTML=p;
+}
+function sortDetail(k){if(detailState.sort===k)detailState.dir*=-1;else{detailState.sort=k;detailState.dir=1;}renderDetailTable();}
+function goPage(p){detailState.page=p;renderDetailTable();window.scrollTo(0,0);}
+function exportDetail(){
+  const all=filteredDetail();
+  const head=['ເລີ່ມ','ສະຖານີ','Charger','ຜູ້ໃຊ້','ເບີ','ຍີ່ຫໍ້','ລຸ່ນ','ປ້າຍ','ປລັກ','ນາທີ','kWh','ຄ່າພະລັງງານ','ຄ່າຈອດ','ຄ່າຖອດ','VAT','ຄ່າໃຊ້ຈ່າຍລວມ','ສະຖານະ','ວັນທີ','ຊ່ວງ'];
+  const rows=[head];
+  all.forEach(r=>rows.push([r.started,r.station,r.charger,r.user,r.phone,r.brand,r.model,r.plate,r.plug,r.dur,r.kwh,r.energyCost,r.parking,r.unplug,r.vat,r.cost,r.status,r.date,r.shift]));
+  const csv="\uFEFF"+rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='panda-sessions-filtered.csv';a.click();
+}
+
+// ---------- ALERT ----------
+function renderAlert(){
+  const g1=DATA.filter(r=>r.kwh===0&&r.cost>0).sort((a,b)=>b.cost-a.cost);
+  const g2=DATA.filter(r=>r.dur>=1&&r.dur<=3&&r.kwh===0).sort((a,b)=>a.dur-b.dur);
+  const g3=DATA.filter(r=>r.kwh>200).sort((a,b)=>b.kwh-a.kwh);
+
+  function tableHTML(list, kind){
+    let h=`<div class="card"><table><thead><tr><th>ເລີ່ມ</th><th>ສະຖານີ</th><th>Charger</th><th>ຜູ້ໃຊ້</th><th class="num">ນາທີ</th><th class="num">kWh</th><th class="num">ຄ່າໃຊ້ຈ່າຍ</th><th>ສະຖານะ</th></tr></thead><tbody>`;
+    if(!list.length){h+=`<tr><td colspan="8" class="empty">✅ ບໍ່ພົບ</td></tr>`;}
+    list.forEach(r=>{
+      const kwhTag = kind==='high' ? `<span class="tag red">${fmt1(r.kwh)}</span>` :
+                     (r.kwh===0 ? `<span class="tag red">${fmt1(r.kwh)}</span>` : fmt1(r.kwh));
+      const durTag = kind==='short' ? `<span class="tag red">${r.dur}</span>` : r.dur;
+      h+=`<tr><td class="muted">${esc(r.started)}</td><td><span class="tag pink">${esc(r.station)}</span></td><td>${esc(r.charger)}</td>
+        <td>${esc(r.user)}<div class="muted">${esc(r.phone)}</div></td>
+        <td class="num">${durTag}</td><td class="num">${kwhTag}</td>
+        <td class="num" style="color:#ff8a8a;font-weight:700">${fmt(r.cost)} ₭</td><td>${esc(r.status)}</td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+    return h;
+  }
+
+  let h=`
+    <div class="section-title" style="margin-top:0">🔴 ໄຟ = 0 ແຕ່ມີຄ່າເງິນ <span class="tag red">${g1.length} ລາຍການ</span></div>
+    <p class="muted" style="margin-bottom:12px">ມີຄ່າໃຊ້ຈ່າຍແຕ່ພະລັງງານເປັນ 0</p>
+    ${tableHTML(g1,'zero')}
+
+    <div class="section-title">🟠 ສາກ 1-3 ນາທີ ແຕ່ kWh = 0 <span class="tag red">${g2.length} ລາຍການ</span></div>
+    <p class="muted" style="margin-bottom:12px">ສຽບສັ້ນໆ ແລ້ວບໍ່ມີພະລັງງານເຂົ້າ</p>
+    ${tableHTML(g2,'short')}
+
+    <div class="section-title">🔵 kWh ເກີນ 200 (ສູງຜິດປົກກະຕິ) <span class="tag red">${g3.length} ລາຍການ</span></div>
+    <p class="muted" style="margin-bottom:12px">ພະລັງງານສູງຜິດປົກກະຕິ — ອາດເປັນຂໍ້ມູນເພີ້ຍນ ຫຼື ມິເຕີຜິດ</p>
+    ${tableHTML(g3,'high')}
+  `;
+  document.getElementById('tab-alert').innerHTML=h;
+}
+// ---------- RANKING ----------
+(function addRankingCSS(){
+  const s = document.createElement('style');
+  s.textContent = `
+    .rank-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;}
+    .rank-btn{padding:8px 16px;border-radius:99px;border:1px solid var(--line);background:var(--panel);
+      color:var(--muted);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
+    .rank-btn:hover{border-color:var(--accent);}
+    .rank-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .rank-toggle{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);
+      padding:8px 14px;border:1px solid var(--line);border-radius:99px;background:var(--panel);cursor:pointer;}
+    .rank-toggle input{accent-color:var(--accent-2);}
+    .podium{display:flex;align-items:flex-end;justify-content:center;gap:16px;margin:20px 0 30px;flex-wrap:wrap;}
+    .pod{display:flex;flex-direction:column;align-items:center;text-align:center;animation:podIn .4s ease backwards;}
+    @keyframes podIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+    .pod-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-size:18px;font-weight:800;color:#fff;margin-bottom:8px;position:relative;flex:none;}
+    .pod-medal{position:absolute;bottom:-5px;right:-5px;width:22px;height:22px;border-radius:50%;
+      background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;
+      border:1px solid var(--line);}
+    .pod-name{font-size:13px;font-weight:700;color:var(--txt);max-width:150px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pod-phone{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px;}
+    .pod-val{font-size:22px;font-weight:800;margin:10px 0 4px;}
+    .pod-sub{font-size:11px;color:var(--muted);}
+    .pod-base{width:100%;border-radius:8px 8px 0 0;display:flex;align-items:flex-end;
+      justify-content:center;padding-bottom:6px;position:relative;overflow:hidden;}
+    .pod-base .fill{position:absolute;inset:0;opacity:.18;}
+    .pod-base span{position:relative;font-size:13px;font-weight:700;}
+    .pod-1{order:2;}.pod-2{order:1;}.pod-3{order:3;}
+    .pod-1 .pod-avatar{background:linear-gradient(135deg,#f4c542,#e8a800);box-shadow:0 6px 20px rgba(244,197,66,.4);}
+    .pod-2 .pod-avatar{background:linear-gradient(135deg,#aab8c8,#7e97ad);}
+    .pod-3 .pod-avatar{background:linear-gradient(135deg,#c8845a,#a0673a);}
+    .pod-1 .pod-val{color:#f4c542;}.pod-2 .pod-val{color:#aab8c8;}.pod-3 .pod-val{color:#c8845a;}
+    .pod-1 .pod-base{height:100px;border:1px solid rgba(244,197,66,.3);border-bottom:none;}
+    .pod-1 .pod-base .fill{background:#f4c542;}
+    .pod-2 .pod-base{height:72px;border:1px solid rgba(170,184,200,.3);border-bottom:none;}
+    .pod-2 .pod-base .fill{background:#aab8c8;}
+    .pod-3 .pod-base{height:54px;border:1px solid rgba(200,132,90,.3);border-bottom:none;}
+    .pod-3 .pod-base .fill{background:#c8845a;}
+    .rank-table-wrap{overflow:auto;max-height:52vh;}
+    .rank-bar-wrap{display:flex;align-items:center;gap:8px;}
+    .rank-bar{height:6px;border-radius:3px;background:var(--accent);min-width:4px;transition:width .6s ease;}
+    .flag-badge-sm{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#ff8a8a;
+      background:rgba(255,95,109,.12);padding:2px 6px;border-radius:4px;font-weight:600;}
+    .rank-no-data{padding:40px;text-align:center;color:var(--muted);}
+  `;
+  document.head.appendChild(s);
+})();
+
+const RANK_PALETTE = ['#ff5f8d','#59d6a8','#ffb454','#5aa9ff','#c084fc','#34d399','#fb923c','#f472b6'];
+function rnkColor(key){let h=0;for(let i=0;i<key.length;i++)h=(h*31+key.charCodeAt(i))>>>0;return RANK_PALETTE[h%RANK_PALETTE.length];}
+function rnkInitials(u){return (u||'?').trim().replace(/^[-—]+$/,'?').split(/\s+/).slice(0,2).map(w=>w[0]||'?').join('').toUpperCase().slice(0,2);}
+
+let rankState = {metric:'kwh', excludeAnomalies:true};
+
+function buildRanking(){
+  const isAnom = r => r.kwh > 200 || r.cost < 0 || (r.dur >= 1 && r.dur <= 3 && r.kwh === 0 && r.cost > 0);
+  const byPhone = {};
+  DATA.forEach(r => {
+    const key = r.phone || ('_unknown_' + (r.user||'?'));
+    if(!byPhone[key]) byPhone[key] = {user:r.user||'—',phone:r.phone||'',sessions:0,kwh:0,cost:0,flagged:0};
+    const u = byPhone[key];
+    if(isAnom(r)){ u.flagged++; if(rankState.excludeAnomalies) return; }
+    if(r.cost < 0 || r.dur < 0) return; // always skip reversed/negative transactions
+    u.sessions++; u.kwh += r.kwh; u.cost += r.cost;
+  });
+  const rows = Object.values(byPhone).filter(u => u.sessions > 0 || u.flagged > 0);
+  const metric = rankState.metric;
+  rows.sort((a,b) => (metric==='sessions' ? b.sessions-a.sessions : metric==='cost' ? b.cost-a.cost : b.kwh-a.kwh));
+  rows.forEach((u,i) => u.rank = i+1);
+  return rows;
+}
+
+function renderRanking(){
+  const el = document.getElementById('tab-ranking');
+
+  // controls
+  const metrics = [{k:'kwh',label:'ພະລັງງານ (kWh)'},{k:'cost',label:'ຄ່າໃຊ້ຈ່າຍ (₭)'},{k:'sessions',label:'ຈຳນວນຄັ້ງ'}];
+  let ctrl = `<div class="rank-controls">`;
+  metrics.forEach(m => {
+    ctrl += `<button class="rank-btn${rankState.metric===m.k?' active':''}" onclick="setRankMetric('${m.k}')">${m.label}</button>`;
+  });
+  ctrl += `<label class="rank-toggle"><input type="checkbox" ${rankState.excludeAnomalies?'checked':''} onchange="setRankAnomaly(this.checked)"> ຕັດ session ຜິດປົກກະຕິ</label></div>`;
+
+  const rows = buildRanking();
+  const top3 = rows.slice(0,3);
+  const medals = ['🥇','🥈','🥉'];
+  const metricLabel = {kwh:'kWh',cost:'₭',sessions:'ຄັ້ງ'}[rankState.metric];
+  const metricVal = u => rankState.metric==='kwh' ? fmt1(u.kwh) : rankState.metric==='cost' ? fmt(u.cost) : u.sessions;
+  const metricSub = u => rankState.metric==='kwh' ? `${u.sessions} ຄັ້ງ · ${fmt(u.cost)} ₭` : rankState.metric==='cost' ? `${u.sessions} ຄັ້ງ · ${fmt1(u.kwh)} kWh` : `${fmt1(u.kwh)} kWh · ${fmt(u.cost)} ₭`;
+
+  // podium
+  let podHTML = `<div class="podium">`;
+  const podOrder = [1,0,2]; // silver, gold, bronze
+  podOrder.forEach(i => {
+    if(!top3[i]) return;
+    const u = top3[i]; const rank = i+1;
+    const color = rnkColor(u.phone || u.user);
+    const initials = rnkInitials(u.user);
+    podHTML += `<div class="pod pod-${rank}" style="animation-delay:${i*80}ms;min-width:140px;max-width:160px;">
+      <div class="pod-avatar" style="background:${rank>1?'linear-gradient(135deg,'+color+','+color+'cc)':''};${rank===1?'':''}">
+        ${initials}<span class="pod-medal">${medals[i]}</span></div>
+      <div class="pod-name" title="${esc(u.user)}">${esc(u.user||'—')}</div>
+      <div class="pod-phone">${esc(u.phone||'—')}</div>
+      <div class="pod-val">${metricVal(u)}</div>
+      <div class="pod-sub">${metricSub(u)}</div>
+      ${u.flagged?`<div class="flag-badge-sm">⚠ ${u.flagged} flagged</div>`:''}
+      <div class="pod-base" style="margin-top:10px;"><div class="fill"></div><span>#${rank}</span></div>
+    </div>`;
+  });
+  podHTML += `</div>`;
+
+  // table
+  const maxVal = rows[0] ? (rankState.metric==='kwh' ? rows[0].kwh : rankState.metric==='cost' ? rows[0].cost : rows[0].sessions) : 1;
+  let tbl = `<div class="rank-table-wrap"><table><thead><tr>
+    <th>#</th><th>ລູກຄ້າ</th><th>ເບີ</th><th class="num">ຈຳນວນຄັ້ງ</th>
+    <th class="num">ພະລັງງານ (kWh)</th><th class="num">ຄ່າໃຊ້ຈ່າຍ (₭)</th>
+    <th class="num">${metricLabel} (ສັດສ່ວນ)</th><th class="num">Flagged</th>
+  </tr></thead><tbody>`;
+  rows.forEach(u => {
+    const val = rankState.metric==='kwh'?u.kwh:rankState.metric==='cost'?u.cost:u.sessions;
+    const pct = maxVal ? Math.max(4, Math.round((val/maxVal)*100)) : 0;
+    tbl += `<tr>
+      <td style="font-weight:800;color:${u.rank<=3?['#f4c542','#aab8c8','#c8845a'][u.rank-1]:'var(--muted)'};">#${u.rank}</td>
+      <td style="font-weight:600;color:var(--txt);" title="${esc(u.user)}">${esc(u.user||'—')}</td>
+      <td class="mono muted">${esc(u.phone||'—')}</td>
+      <td class="num">${u.sessions}</td>
+      <td class="num mono">${fmt1(u.kwh)}</td>
+      <td class="num mono">${fmt(u.cost)}</td>
+      <td class="num"><div class="rank-bar-wrap" style="justify-content:flex-end;">
+        <span class="mono" style="font-size:12px;">${rankState.metric==='sessions'?u.sessions:rankState.metric==='cost'?fmt(u.cost):fmt1(u.kwh)}</span>
+        <div class="rank-bar" style="width:${pct}px;max-width:${pct}px;background:${rnkColor(u.phone||u.user)};"></div>
+      </div></td>
+      <td class="num">${u.flagged?`<span class="flag-badge-sm">⚠ ${u.flagged}</span>`:'—'}</td>
+    </tr>`;
+  });
+  if(!rows.length) tbl += `<tr><td colspan="8" class="rank-no-data">ບໍ່ພົບຂໍ້ມູນ</td></tr>`;
+  tbl += `</tbody></table></div>`;
+
+  el.innerHTML = `
+    <div class="section-title" style="margin-top:0;">🏆 ຈັດອັນດັບລູກຄ້າ <span class="muted" style="font-size:13px;font-weight:400;">${rows.length.toLocaleString()} ລາຍ · ກັ່ນຕອງ session ດ້ວຍຕົນ</span></div>
+    ${ctrl}
+    ${podHTML}
+    <div class="section-title">ຕາຕະລາງລາຍລະອຽດ</div>
+    ${tbl}`;
+}
+
+function setRankMetric(m){ rankState.metric=m; renderRanking(); }
+function setRankAnomaly(v){ rankState.excludeAnomalies=v; renderRanking(); }
+
+// ---------- tabs ----------
+// ---- Finance Tab Renderer ----
+function renderFinance(){
+  const el = document.getElementById('tab-finance');
+  const bankTotal = _BANK.reduce((s,r)=>s+r.amount,0);
+  const topupTotal = _TOPUP.reduce((s,r)=>s+r.amount,0);
+  const refundTotal = _REFUND.reduce((s,r)=>s+r.amount,0);
+  const bankCount = _BANK.length;
+  const topupCount = _TOPUP.length;
+  const refundCount = _REFUND.length;
+
+  // Provider breakdown
+  const provMap = {};
+  _BANK.forEach(r=>{ provMap[r.provider]=(provMap[r.provider]||{count:0,amt:0}); provMap[r.provider].count++; provMap[r.provider].amt+=r.amount; });
+
+  // Reconcile bank ↔ topup by link_key
+  const topupMap = {};
+  _TOPUP.forEach(r=>{ if(r.link_key) topupMap[r.link_key]=r; });
+  let matched=0, bankOnly=0, bankOnlyAmt=0;
+  _BANK.forEach(r=>{ if(topupMap[r.link_key]){ matched++; } else { bankOnly++; bankOnlyAmt+=r.amount; } });
+
+  // Daily bank
+  const dailyBank = {};
+  _BANK.forEach(r=>{ const d=r.date; if(!d) return; dailyBank[d]=(dailyBank[d]||0)+r.amount; });
+  const dailyTopup = {};
+  _TOPUP.forEach(r=>{ const d=r.date; if(!d) return; dailyTopup[d]=(dailyTopup[d]||0)+r.amount; });
+
+  const noData = bankCount===0 && topupCount===0 && refundCount===0;
+
+  let h = '';
+
+  // KPI cards
+  h += `<div class="stats" style="margin-bottom:20px;">
+    <div class="stat" style="--c:#59d6a8">
+      <div class="label">🏦 Bank Topup (Gateway)</div>
+      <div class="value">${fmt(bankTotal)} <small>LAK</small></div>
+      <div style="color:var(--muted);font-size:12px;margin-top:4px;">${bankCount} transactions</div>
+    </div>
+    <div class="stat" style="--c:#5aa9ff">
+      <div class="label">👛 Wallet Topup</div>
+      <div class="value">${fmt(topupTotal)} <small>LAK</small></div>
+      <div style="color:var(--muted);font-size:12px;margin-top:4px;">${topupCount} transactions</div>
+    </div>
+    <div class="stat" style="--c:#ff5f8d">
+      <div class="label">🔄 Refund</div>
+      <div class="value">${fmt(refundTotal)} <small>LAK</small></div>
+      <div style="color:var(--muted);font-size:12px;margin-top:4px;">${refundCount} transactions</div>
+    </div>
+    <div class="stat" style="--c:#ffb454">
+      <div class="label">⚖️ Reconcile (Bank↔Wallet)</div>
+      <div class="value" style="color:${matched===bankCount&&bankCount>0?'var(--accent-2)':'var(--warn)'}">
+        ${matched}/${bankCount} <small>ຕົງ</small>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-top:4px;">${bankOnly > 0 ? `⚠️ ${bankOnly} ທີ່ wallet ບໍ່ຮັບ (${fmt(bankOnlyAmt)} LAK)` : '✅ ຕົງທັງໝົດ'}</div>
+    </div>
+  </div>`;
+
+  if(noData){
+    h += `<div class="card"><div class="empty" style="padding:60px;">
+      <p style="font-size:24px;margin-bottom:10px;">💰</p>
+      <p style="color:var(--muted);">ວາງ CSV: Bank Payment / Wallet Topup / Refund</p>
+      <p style="color:var(--txt3);font-size:12px;margin-top:8px;">ຮັນ SQL ໃນ DBeaver ແລ້ວ Export CSV ມາ drop ຢູ່ນີ້</p>
+    </div></div>`;
+    el.innerHTML = h; return;
+  }
+
+  // Provider breakdown
+  if(Object.keys(provMap).length > 0){
+    h += `<div class="section-title">🏦 Bank Payments ຕາມ Provider</div>
+    <div class="card"><table><thead><tr>
+      <th>Provider</th><th class="num">Transactions</th><th class="num">ລວມ (LAK)</th><th class="num">ສະເລ່ຍ</th>
+    </tr></thead><tbody>`;
+    Object.entries(provMap).sort((a,b)=>b[1].amt-a[1].amt).forEach(([prov,d])=>{
+      h += `<tr><td>${prov}</td><td class="num mono">${d.count}</td>
+        <td class="num mono">${fmt(d.amt)}</td>
+        <td class="num mono">${fmt(d.amt/d.count)}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+
+  // Daily comparison
+  const allDates = [...new Set([...Object.keys(dailyBank),...Object.keys(dailyTopup)])].sort();
+  if(allDates.length > 0){
+    h += `<div class="section-title">📅 ຕາລາງລາຍວັນ (Bank vs Wallet)</div>
+    <div class="card"><table><thead><tr>
+      <th>ວັນທີ</th><th class="num">Bank (LAK)</th><th class="num">Wallet (LAK)</th><th class="num">ຜົນຕ່າງ</th>
+    </tr></thead><tbody>`;
+    allDates.forEach(d=>{
+      const b=dailyBank[d]||0, t=dailyTopup[d]||0, diff=b-t;
+      const diffColor = Math.abs(diff)<100?'var(--accent-2)':diff>0?'var(--warn)':'var(--blue)';
+      h += `<tr><td>${d}</td><td class="num mono">${fmt(b)}</td>
+        <td class="num mono">${fmt(t)}</td>
+        <td class="num mono" style="color:${diffColor}">${diff>=0?'+':''}${fmt(diff)}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+
+  // Bank table
+  if(_BANK.length > 0){
+    h += `<div class="section-title">🏦 Bank Payments ລາຍລະອຽດ (${_BANK.length} rows)</div>
+    <div class="card" style="overflow:auto;max-height:400px;"><table><thead><tr>
+      <th>ເວລາ</th><th>Provider</th><th class="num">LAK</th><th>Payer</th><th>Phone</th><th>Bank Ref</th><th>Link Key</th>
+    </tr></thead><tbody>`;
+    _BANK.forEach(r=>{
+      h += `<tr><td class="mono" style="font-size:12px">${r.time.slice(0,16)}</td>
+        <td><span class="tag ${r.provider==='BCEL'?'green':'blue'}">${r.provider}</span></td>
+        <td class="num mono">${fmt(r.amount)}</td>
+        <td>${r.payer_name||'-'}</td><td class="mono">${r.payer_phone||'-'}</td>
+        <td class="mono" style="font-size:11px">${(r.bank_ref||'-').slice(0,20)}</td>
+        <td class="mono" style="font-size:11px">${(r.link_key||'-').slice(0,25)}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+
+  // Topup table
+  if(_TOPUP.length > 0){
+    h += `<div class="section-title">👛 Wallet Topup ລາຍລະອຽດ (${_TOPUP.length} rows)</div>
+    <div class="card" style="overflow:auto;max-height:400px;"><table><thead><tr>
+      <th>ເວລາ</th><th>Phone</th><th>ຊື່</th><th class="num">LAK</th><th class="num">Balance After</th><th>Link Key</th>
+    </tr></thead><tbody>`;
+    _TOPUP.forEach(r=>{
+      h += `<tr><td class="mono" style="font-size:12px">${r.time.slice(0,16)}</td>
+        <td class="mono">${r.payer_phone||'-'}</td>
+        <td>${r.payer_name||'-'}</td>
+        <td class="num mono">${fmt(r.amount)}</td>
+        <td class="num mono">${fmt(r.balance_after)}</td>
+        <td class="mono" style="font-size:11px">${(r.link_key||'-').slice(0,25)}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+
+  // Refund table
+  if(_REFUND.length > 0){
+    h += `<div class="section-title">🔄 Refund ລາຍລະອຽດ (${_REFUND.length} rows)</div>
+    <div class="card" style="overflow:auto;max-height:400px;"><table><thead><tr>
+      <th>ເວລາ</th><th>Phone</th><th>ຊື່</th><th class="num">LAK</th><th class="num">Balance After</th><th>Description</th>
+    </tr></thead><tbody>`;
+    _REFUND.forEach(r=>{
+      h += `<tr><td class="mono" style="font-size:12px">${r.time.slice(0,16)}</td>
+        <td class="mono">${r.payer_phone||'-'}</td>
+        <td>${r.payer_name||'-'}</td>
+        <td class="num mono" style="color:var(--accent)">${fmt(r.amount)}</td>
+        <td class="num mono">${fmt(r.balance_after)}</td>
+        <td style="font-size:12px">${r.description||'-'}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+
+  el.innerHTML = h;
+}
+
+const renderers={overview:renderOverview,daily:renderDaily,station:renderStation,shift:renderShift,detail:renderDetailShell,alert:renderAlert,ranking:renderRanking,finance:renderFinance};
+const rendered={};
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');
+  const tab=t.dataset.tab;
+  Object.keys(renderers).forEach(name=>document.getElementById('tab-'+name).classList.toggle('hidden',name!==tab));
+  if(!rendered[tab]){renderers[tab]();rendered[tab]=true;}
+}));
+// initial
+renderOverview();rendered.overview=true;
+</script>
+</body>
+</html>
